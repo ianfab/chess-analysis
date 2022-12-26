@@ -1,0 +1,5 @@
+https://github.com/ianfab/python-chess/archive/ensuremove.zip
+tqdm
+matplotlib
+numpy
+pandas
