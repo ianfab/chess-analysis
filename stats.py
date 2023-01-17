@@ -27,8 +27,8 @@ def get_cpl(ce, ce2, cap=1000) -> int:
 
 def get_stats(ce, ce2, ply) -> tuple:
     return {
-        "elsf": get_el(ce, ce2, "sf", ply),
-        "ell": get_el(ce, ce2, "lichess", ply),
+        "el_sf": get_el(ce, ce2, "sf", ply),
+        "el_l": get_el(ce, ce2, "lichess", ply),
         "cpl": get_cpl(ce, ce2),
     }
 
@@ -49,17 +49,32 @@ def main(instream) -> None:
             "ce2": "int"
         }
     )
-    columns = ["elo", "cpl", "elsf", "ell"]
+    columns = ["elo", "cpl", "el_sf", "el_l"]
     aggs = ["mean", "std"]
     with pd.option_context('display.float_format', '{:.3f}'.format):
-        # by player
-        print(df.groupby("player")[columns].agg(aggs))
+        print("# General stats")
         # by rating range
         print(df.groupby(pd.cut(df["elo"], np.arange(1200, 3000, 100)))[columns].agg(aggs))
         # by ply
         print(df.groupby(pd.cut(df["ply"], np.arange(0, 200, 10)))[columns].agg(aggs))
         # by ce
         print(df.groupby(pd.cut(df["ce"], np.arange(-1000, 1000, 100)))[columns].agg(aggs))
+        print()
+        print("# Player stats")
+    with pd.option_context('display.float_format', '{:.4f}'.format):
+        # per player and game
+        per_player_game = df.groupby(["player", "id"]).agg(
+            elo=("elo", "mean"),
+            moves=("id", "count"),
+            tel_sf=("el_sf", "sum"),
+            ael_sf=("el_sf", "mean"),
+            tel_l=("el_l", "sum"),
+            ael_l=("el_l", "mean"),
+        )
+        print(per_player_game)
+        # by player
+        print(df.groupby("player")[columns].agg(aggs))
+        print(per_player_game.groupby(["player"]).agg(["mean"]))
 
 
 if __name__ == "__main__":
