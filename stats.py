@@ -53,27 +53,32 @@ def main(instream) -> None:
     aggs = ["mean", "std"]
     with pd.option_context('display.float_format', '{:.3f}'.format):
         print("# General stats")
-        # by rating range
+        print("## move stats aggregated by rating range")
         print(df.groupby(pd.cut(df["elo"], np.arange(1200, 3000, 100)))[columns].agg(aggs))
-        # by ply
+        print("## move stats aggregated by game ply")
         print(df.groupby(pd.cut(df["ply"], np.arange(0, 200, 10)))[columns].agg(aggs))
-        # by ce
+        print("## move stats aggregated by current centipawn evaluation")
         print(df.groupby(pd.cut(df["ce"], np.arange(-1000, 1000, 100)))[columns].agg(aggs))
-        print()
-        print("# Player stats")
     with pd.option_context('display.float_format', '{:.4f}'.format):
-        # per player and game
         per_player_game = df.groupby(["player", "id"]).agg(
             elo=("elo", "mean"),
             moves=("id", "count"),
+            acpl=("cpl", "mean"),
             tel_sf=("el_sf", "sum"),
             ael_sf=("el_sf", "mean"),
             tel_l=("el_l", "sum"),
             ael_l=("el_l", "mean"),
         )
+        print("## game stats correlation")
+        print(per_player_game.corr())
+        print()
+        print("# Player stats")
+        print("## stats aggregated per player and game")
         print(per_player_game)
         # by player
+        print("## move stats aggregated per player")
         print(df.groupby("player")[columns].agg(aggs))
+        print("## game stats aggregated per player")
         print(per_player_game.groupby(["player"]).agg(["mean"]))
 
 
