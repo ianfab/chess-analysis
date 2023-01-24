@@ -25,11 +25,17 @@ def get_cpl(ce, ce2, cap=1000) -> int:
     return clamp(ce, cap) - clamp(ce2, cap)
 
 
-def get_stats(ce, ce2, ply) -> tuple:
+def get_stats(annotations, fen) -> tuple:
+    ce = int(annotations["ce"])
+    ce2 = int(annotations["ce2"])
+    ply = int(annotations["ply"])
+    result = annotations["result"]
     return {
         "el_sf": get_el(ce, ce2, "sf", ply),
         "el_l": get_el(ce, ce2, "lichess", ply),
         "cpl": get_cpl(ce, ce2),
+        "bestmove": annotations["sm"] == annotations["bm"],
+        "score": {"1-0": 1, "0-1": 0}.get(result if fen.split()[1] == "w" else result[::-1], 0.5)
     }
 
 
@@ -37,20 +43,22 @@ def main(instream) -> None:
     stats = []
     total = sum_line_count(instream)
     for epd in tqdm(instream, total=total):
-        _, annotations = parse_epd(epd)
-        stats_entry = get_stats(int(annotations["ce"]), int(annotations["ce2"]), int(annotations["ply"]))
-        stats_entry.update(annotations)
-        stats.append(stats_entry)
+        fen, annotations = parse_epd(epd)
+        annotations.update(get_stats(annotations, fen))
+        stats.append(annotations)
     df = pd.DataFrame(stats).astype(
         {
             "elo": "int",
             "ply": "int",
             "ce": "int",
-            "ce2": "int"
+            "ce2": "int",
+            "bestmove": "int"
         }
     )
-    columns = ["elo", "cpl", "el_sf", "el_l"]
-    aggs = ["mean", "std"]
+    print("# Raw data")
+    print(df)
+    columns = ["elo", "bestmove", "cpl", "el_sf", "el_l"]
+    aggs = ["mean"]
     with pd.option_context('display.float_format', '{:.3f}'.format):
         print("# General stats")
         print("## move stats aggregated by rating range")
@@ -62,7 +70,9 @@ def main(instream) -> None:
     with pd.option_context('display.float_format', '{:.4f}'.format):
         per_player_game = df.groupby(["player", "id"]).agg(
             elo=("elo", "mean"),
+            score=("score", "mean"),
             moves=("id", "count"),
+            bestmove=("bestmove", "mean"),
             acpl=("cpl", "mean"),
             tel_sf=("el_sf", "sum"),
             ael_sf=("el_sf", "mean"),
