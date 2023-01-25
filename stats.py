@@ -77,7 +77,10 @@ def main(instream) -> None:
             ael_l=("el_l", "mean"),
         )
         print("## game stats correlation")
-        print(per_player_game.corr())
+        print("### Pearson")
+        print(per_player_game.corr(method="pearson"))
+        print("### Spearman")
+        print(per_player_game.corr(method="spearman"))
         print()
         print("# Player stats")
         print("## stats aggregated per player and game")
