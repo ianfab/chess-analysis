@@ -25,18 +25,8 @@ def get_cpl(ce, ce2, cap=1000) -> int:
     return clamp(ce, cap) - clamp(ce2, cap)
 
 
-def get_stats(annotations, fen) -> tuple:
-    ce = int(annotations["ce"])
-    ce2 = int(annotations["ce2"])
-    ply = int(annotations["ply"])
-    result = annotations["result"]
-    return {
-        "el_sf": get_el(ce, ce2, "sf", ply),
-        "el_l": get_el(ce, ce2, "lichess", ply),
-        "cpl": get_cpl(ce, ce2),
-        "bestmove": annotations["sm"] == annotations["bm"],
-        "score": {"1-0": 1, "0-1": 0}.get(result if fen.split()[1] == "w" else result[::-1], 0.5)
-    }
+def get_score(result, color):
+    return {"1-0": 1, "0-1": 0}.get(result if color == "w" else result[::-1], 0.5)
 
 
 def main(instream) -> None:
@@ -44,7 +34,7 @@ def main(instream) -> None:
     total = sum_line_count(instream)
     for epd in tqdm(instream, total=total):
         fen, annotations = parse_epd(epd)
-        annotations.update(get_stats(annotations, fen))
+        annotations["color"] = fen.split()[1]
         stats.append(annotations)
     df = pd.DataFrame(stats).astype(
         {
@@ -52,9 +42,15 @@ def main(instream) -> None:
             "ply": "int",
             "ce": "int",
             "ce2": "int",
-            "bestmove": "int"
         }
     )
+    df["bestmove"] = df["sm"] == df["bm"]
+    df["cpl"] = df.apply(lambda x: get_cpl(x["ce"], x["ce2"]), axis=1)
+    df["el_sf"] = df.apply(lambda x: get_el(x["ce"], x["ce2"], "sf", x["ply"]), axis=1)
+    df["el_l"] = df.apply(lambda x: get_el(x["ce"], x["ce2"], "lichess", x["ply"]), axis=1)
+    df["score"] = df.apply(lambda x: get_score(x["result"], x["color"]), axis=1)
+    df["cpl2"] = df["cpl"]
+    df.loc[df["ce"] < -1000, "cpl2"] = np.nan
     print("# Raw data")
     print(df)
     columns = ["elo", "bestmove", "cpl", "el_sf", "el_l"]
@@ -74,6 +70,7 @@ def main(instream) -> None:
             moves=("id", "count"),
             bestmove=("bestmove", "mean"),
             acpl=("cpl", "mean"),
+            acpl2=("cpl2", "mean"),
             tel_sf=("el_sf", "sum"),
             ael_sf=("el_sf", "mean"),
             tel_l=("el_l", "sum"),
