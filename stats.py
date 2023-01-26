@@ -35,14 +35,16 @@ def main(instream) -> None:
     df["bestmove"] = df["sm"] == df["bm"]
     df["cpl"] = df["ce"].clip(-1000, 1000) - df["ce2"].clip(-1000, 1000)
     df["el_sf"] = df.apply(lambda x: get_el(x["ce"], x["ce2"], "sf", x["ply"]), axis=1)
+    df["ev_l"] = df.apply(lambda x: get_ev(x["ce"], "lichess", x["ply"]), axis=1)
     df["el_l"] = df.apply(lambda x: get_el(x["ce"], x["ce2"], "lichess", x["ply"]), axis=1)
     df["score"] = ((df["color"] == "b").astype(float) - df["result"].map({"1-0": 1, "0-1": 0, "1/2-1/2": 0.5})).abs()
     df["test1"] = df["cpl"].clip(-200, 200)
     df.loc[df["ce"] < -500, "test1"] = np.nan
     df["test2"] = df["el_l"]
     df.loc[df["ce"] < -300, "test2"] = np.nan
-    df["test3"] = df["el_l"] / df.apply(lambda x: get_ev(x["ce"], "lichess", x["ply"]), axis=1)
+    df["test3"] = df["el_l"] / df["ev_l"]
     df.loc[df["ce"] < -300, "test3"] = np.nan
+    df["test4"] = df["el_l"]
     print("# Raw data")
     print(df)
     columns = ["elo", "bestmove", "cpl", "el_sf", "el_l"]
@@ -66,10 +68,13 @@ def main(instream) -> None:
             ael_sf=("el_sf", "mean"),
             tel_l=("el_l", "sum"),
             ael_l=("el_l", "mean"),
+            aev_l=("ev_l", "mean"),
             test1=("test1", "mean"),
             test2=("test2", "mean"),
             test3=("test3", "mean"),
+            test4=("test4", "mean"),
         )
+        per_player_game["test4"] = per_player_game["test4"] / per_player_game["aev_l"]
         print("## game stats correlation")
         print("### Pearson")
         print(per_player_game.corr(method="pearson"))
