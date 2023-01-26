@@ -17,18 +17,6 @@ def get_el(ce, ce2, model, ply) -> float:
     return get_ev(ce, model, ply) - get_ev(ce2, model, ply)
 
 
-def clamp(v, vmax):
-    return min(max(v, -vmax), vmax)
-
-
-def get_cpl(ce, ce2, cap=1000) -> int:
-    return clamp(ce, cap) - clamp(ce2, cap)
-
-
-def get_score(result, color):
-    return {"1-0": 1, "0-1": 0}.get(result if color == "w" else result[::-1], 0.5)
-
-
 def main(instream) -> None:
     stats = []
     total = sum_line_count(instream)
@@ -45,12 +33,16 @@ def main(instream) -> None:
         }
     )
     df["bestmove"] = df["sm"] == df["bm"]
-    df["cpl"] = df.apply(lambda x: get_cpl(x["ce"], x["ce2"]), axis=1)
+    df["cpl"] = df["ce"].clip(-1000, 1000) - df["ce2"].clip(-1000, 1000)
     df["el_sf"] = df.apply(lambda x: get_el(x["ce"], x["ce2"], "sf", x["ply"]), axis=1)
     df["el_l"] = df.apply(lambda x: get_el(x["ce"], x["ce2"], "lichess", x["ply"]), axis=1)
-    df["score"] = df.apply(lambda x: get_score(x["result"], x["color"]), axis=1)
-    df["cpl2"] = df["cpl"]
-    df.loc[df["ce"] < -1000, "cpl2"] = np.nan
+    df["score"] = ((df["color"] == "b").astype(float) - df["result"].map({"1-0": 1, "0-1": 0, "1/2-1/2": 0.5})).abs()
+    df["test1"] = df["cpl"].clip(-200, 200)
+    df.loc[df["ce"] < -500, "test1"] = np.nan
+    df["test2"] = df["el_l"]
+    df.loc[df["ce"] < -300, "test2"] = np.nan
+    df["test3"] = df["el_l"] / df.apply(lambda x: get_ev(x["ce"], "lichess", x["ply"]), axis=1)
+    df.loc[df["ce"] < -300, "test3"] = np.nan
     print("# Raw data")
     print(df)
     columns = ["elo", "bestmove", "cpl", "el_sf", "el_l"]
@@ -70,11 +62,13 @@ def main(instream) -> None:
             moves=("id", "count"),
             bestmove=("bestmove", "mean"),
             acpl=("cpl", "mean"),
-            acpl2=("cpl2", "mean"),
             tel_sf=("el_sf", "sum"),
             ael_sf=("el_sf", "mean"),
             tel_l=("el_l", "sum"),
             ael_l=("el_l", "mean"),
+            test1=("test1", "mean"),
+            test2=("test2", "mean"),
+            test3=("test3", "mean"),
         )
         print("## game stats correlation")
         print("### Pearson")
